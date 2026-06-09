@@ -1,0 +1,55 @@
+[package]
+name = "iroh-hyde-auth"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.85"
+license = "MIT"
+description = "Institutional, TPM-bound authentication for iroh connections via EndpointHooks and a separate auth ALPN, backed by hyde (ML-DSA / FIPS 204)."
+repository = "https://github.com/Ryujiyasu/iroh-hyde-auth"
+keywords = ["iroh", "authentication", "tpm", "tee", "post-quantum"]
+categories = ["network-programming", "cryptography", "authentication"]
+readme = "README.md"
+
+[dependencies]
+iroh = "=1.0.0-rc.1"
+tokio = { version = "1", features = ["sync", "rt", "macros"] }
+serde = { version = "1", features = ["derive"] }
+postcard = { version = "1", features = ["alloc"] }
+rand = "0.8"
+thiserror = "2"
+tracing = "0.1"
+
+# Transitive pin for the shared RustCrypto stack.
+#
+# hyde-core is written against ml-dsa's `KeyGen`/`from_seed` API and its own lock
+# uses 0.1.0-rc.8. But rc.8 demands the *pre-release* pkcs8 (`^0.11.0-rc.11`),
+# while iroh's ed25519-dalek forces the *stable* pkcs8 0.11.0 — a single unified
+# version that rc.8 cannot compile against (`pkcs8::Error::KeyMalformed`).
+#
+# ml-dsa 0.1.0-rc.10 is the one version that satisfies both: it still exports the
+# `KeyGen` trait + `from_seed` (so hyde-core compiles unchanged) AND loosened its
+# deps to `pkcs8 ^0.11` / `signature ^3` (so it coexists with iroh's stable
+# stack). 0.1.0-rc.11+ dropped the `KeyGen` export and would break hyde-core.
+ml-dsa = "=0.1.0-rc.10"
+
+# hyde TEE facade (package `hyde-tee`). Path dependency for local development;
+# switch to a git/crates.io dependency before publishing.
+[dependencies.hyde]
+package = "hyde-tee"
+path = "../hyde/crates/hyde"
+default-features = false
+
+[dev-dependencies]
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "time", "io-util"] }
+tracing-subscriber = { version = "0.3", features = ["fmt"] }
+
+[features]
+# `tpm` is the production default: the institutional identity MUST be hardware-bound.
+default = ["tpm"]
+tpm = ["hyde/tpm"]
+# `software` is for development, CI, and offline tests only — no hardware binding.
+software = ["hyde/software"]
+
+[[example]]
+name = "echo-auth"
+required-features = ["software"]

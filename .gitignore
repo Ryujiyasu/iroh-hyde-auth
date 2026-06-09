@@ -1,0 +1,6 @@
+/target
+*.swp
+
+# Cargo.lock IS committed: this crate depends on a fast-moving pre-release stack
+# (iroh 1.0.0-rc.1 + the RustCrypto ml-dsa/pkcs8 tree) where a fresh resolution
+# easily picks an incompatible combination. The lock pins the known-good tree.
