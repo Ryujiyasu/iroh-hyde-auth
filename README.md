@@ -134,6 +134,12 @@ cargo test --no-default-features --features software
 # ssh-agent backend, against a throwaway agent (Unix)
 cargo test --no-default-features --features ssh-agent --test ssh_agent
 
+# TPM backend, against a software TPM 2.0 (swtpm) — exercises the real
+# tss-esapi path (primary key, sealed ML-DSA seed, sign), not the fallback
+swtpm socket --tpm2 --tpmstate dir=/tmp/iha-swtpm \
+  --server type=tcp,port=2321 --ctrl type=tcp,port=2322 --flags startup-clear &
+cargo test --test tpm        # default features include `tpm`
+
 # live demos (need network for the n0 preset)
 cargo run --example echo-auth   --features software   # one-directional
 cargo run --example mutual-echo --features software   # mutual
@@ -156,8 +162,9 @@ cargo run --example mutual-echo --features software   # mutual
   yet validated across a real n0 relay/NAT-traversal network.
 - Roster is an in-memory allow-list; revocation = remove the key. External
   revocation/time-validity sources are not wired in yet.
-- The institutional signature runs synchronously on the async task; at high
-  connection rates a TPM sign (~10–100 ms) should move to `spawn_blocking`.
+- The TPM backend is validated end-to-end against a software TPM 2.0 (swtpm,
+  full tss-esapi path) in `tests/tpm.rs`; a hardware TPM uses the identical
+  code path (`TCTI=device:/dev/tpmrm0`).
 - Pinned to `iroh = =1.0.0-rc.1`.
 
 ## Relationship to upstream iroh
