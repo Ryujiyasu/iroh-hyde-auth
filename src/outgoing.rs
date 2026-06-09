@@ -50,14 +50,14 @@ type AuthResult = std::result::Result<(), Arc<Error>>;
 /// Endpoint hook that gates outgoing connections on a prior auth handshake.
 #[derive(Debug)]
 pub struct OutgoingAuthHook {
-    tx: mpsc::Sender<(EndpointId, oneshot::Sender<AuthResult>)>,
+    tx: mpsc::Sender<(EndpointAddr, oneshot::Sender<AuthResult>)>,
 }
 
 impl OutgoingAuthHook {
-    async fn authenticate(&self, remote_id: EndpointId) -> Result<()> {
+    async fn authenticate(&self, remote_addr: EndpointAddr) -> Result<()> {
         let (tx, rx) = oneshot::channel();
         self.tx
-            .send((remote_id, tx))
+            .send((remote_addr, tx))
             .await
             .map_err(|_| Error::AuthenticatorStopped)?;
         match rx.await {
@@ -78,7 +78,9 @@ impl EndpointHooks for OutgoingAuthHook {
         if alpn == crate::ALPN {
             return BeforeConnectOutcome::Accept;
         }
-        match self.authenticate(remote_addr.id).await {
+        // Pass the full address (with direct addresses) so the auth connection
+        // resolves the same way the application connection would.
+        match self.authenticate(remote_addr.clone()).await {
             Ok(()) => BeforeConnectOutcome::Accept,
             Err(err) => {
                 debug!("outgoing auth denied for {}: {err:#}", remote_addr.id);
@@ -92,7 +94,7 @@ impl EndpointHooks for OutgoingAuthHook {
 /// per remote so repeated connections only authenticate once.
 pub struct OutgoingAuthTask {
     signer: Arc<dyn InstitutionalSigner>,
-    rx: mpsc::Receiver<(EndpointId, oneshot::Sender<AuthResult>)>,
+    rx: mpsc::Receiver<(EndpointAddr, oneshot::Sender<AuthResult>)>,
     allowed_remotes: HashSet<EndpointId>,
     pending_remotes: HashMap<EndpointId, Vec<oneshot::Sender<AuthResult>>>,
     tasks: JoinSet<(EndpointId, Result<()>)>,
@@ -109,8 +111,8 @@ impl OutgoingAuthTask {
         loop {
             tokio::select! {
                 msg = self.rx.recv() => {
-                    let Some((remote_id, tx)) = msg else { break };
-                    self.handle_request(&endpoint, remote_id, tx);
+                    let Some((remote_addr, tx)) = msg else { break };
+                    self.handle_request(&endpoint, remote_addr, tx);
                 }
                 Some(joined) = self.tasks.join_next(), if !self.tasks.is_empty() => {
                     let (remote_id, res) = joined.expect("auth connect task panicked");
@@ -123,9 +125,10 @@ impl OutgoingAuthTask {
     fn handle_request(
         &mut self,
         endpoint: &Endpoint,
-        remote_id: EndpointId,
+        remote_addr: EndpointAddr,
         tx: oneshot::Sender<AuthResult>,
     ) {
+        let remote_id = remote_addr.id;
         if self.allowed_remotes.contains(&remote_id) {
             tx.send(Ok(())).ok();
             return;
@@ -136,7 +139,7 @@ impl OutgoingAuthTask {
                 let endpoint = endpoint.clone();
                 let signer = self.signer.clone();
                 self.tasks.spawn(async move {
-                    let res = handshake(endpoint, remote_id, signer).await;
+                    let res = handshake(endpoint, remote_addr, signer).await;
                     (remote_id, res)
                 });
                 entry.insert(vec![tx]);
@@ -159,11 +162,11 @@ impl OutgoingAuthTask {
 /// Run the institutional handshake against `remote_id` over the auth ALPN.
 async fn handshake(
     endpoint: Endpoint,
-    remote_id: EndpointId,
+    remote_addr: EndpointAddr,
     signer: Arc<dyn InstitutionalSigner>,
 ) -> Result<()> {
     let conn = endpoint
-        .connect(remote_id, crate::ALPN)
+        .connect(remote_addr, crate::ALPN)
         .await
         .map_err(transport)?;
     let (mut send, mut recv) = conn.open_bi().await.map_err(transport)?;

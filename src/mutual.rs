@@ -98,15 +98,15 @@ pub fn mutual(
 /// incoming ones, both against the shared mutually-authenticated peer set.
 #[derive(Debug)]
 pub struct MutualAuthHook {
-    tx: mpsc::Sender<(EndpointId, oneshot::Sender<AuthResult>)>,
+    tx: mpsc::Sender<(EndpointAddr, oneshot::Sender<AuthResult>)>,
     allowed: Arc<Mutex<HashSet<EndpointId>>>,
 }
 
 impl MutualAuthHook {
-    async fn authenticate(&self, remote_id: EndpointId) -> Result<()> {
+    async fn authenticate(&self, remote_addr: EndpointAddr) -> Result<()> {
         let (tx, rx) = oneshot::channel();
         self.tx
-            .send((remote_id, tx))
+            .send((remote_addr, tx))
             .await
             .map_err(|_| Error::AuthenticatorStopped)?;
         match rx.await {
@@ -126,7 +126,10 @@ impl EndpointHooks for MutualAuthHook {
         if alpn == MUTUAL_ALPN {
             return BeforeConnectOutcome::Accept;
         }
-        match self.authenticate(remote_addr.id).await {
+        // Pass the full address (with direct addresses) so the auth connection
+        // resolves the same way the application connection would — no reliance
+        // on discovery.
+        match self.authenticate(remote_addr.clone()).await {
             Ok(()) => BeforeConnectOutcome::Accept,
             Err(err) => {
                 debug!("mutual auth (outgoing) denied for {}: {err:#}", remote_addr.id);
@@ -248,7 +251,7 @@ impl ProtocolHandler for MutualAuthProtocol {
 pub struct MutualAuthTask {
     signer: Arc<dyn InstitutionalSigner>,
     verifier: Arc<dyn InstitutionVerifier>,
-    rx: mpsc::Receiver<(EndpointId, oneshot::Sender<AuthResult>)>,
+    rx: mpsc::Receiver<(EndpointAddr, oneshot::Sender<AuthResult>)>,
     shared: Shared,
     pending: HashMap<EndpointId, Vec<oneshot::Sender<AuthResult>>>,
     tasks: JoinSet<(EndpointId, Result<()>)>,
@@ -269,8 +272,8 @@ impl MutualAuthTask {
         loop {
             tokio::select! {
                 msg = self.rx.recv() => {
-                    let Some((remote_id, tx)) = msg else { break };
-                    self.handle_request(&endpoint, remote_id, tx);
+                    let Some((remote_addr, tx)) = msg else { break };
+                    self.handle_request(&endpoint, remote_addr, tx);
                 }
                 Some(joined) = self.tasks.join_next(), if !self.tasks.is_empty() => {
                     let (remote_id, res) = joined.expect("mutual handshake task panicked");
@@ -283,9 +286,10 @@ impl MutualAuthTask {
     fn handle_request(
         &mut self,
         endpoint: &Endpoint,
-        remote_id: EndpointId,
+        remote_addr: EndpointAddr,
         tx: oneshot::Sender<AuthResult>,
     ) {
+        let remote_id = remote_addr.id;
         if self
             .shared
             .allowed
@@ -304,7 +308,7 @@ impl MutualAuthTask {
                 let verifier = self.verifier.clone();
                 let max_skew = self.max_skew_secs;
                 self.tasks.spawn(async move {
-                    let res = handshake(endpoint, remote_id, signer, verifier, max_skew).await;
+                    let res = handshake(endpoint, remote_addr, signer, verifier, max_skew).await;
                     (remote_id, res)
                 });
                 entry.insert(vec![tx]);
@@ -331,13 +335,13 @@ impl MutualAuthTask {
 /// Initiator side of the mutual handshake over [`MUTUAL_ALPN`].
 async fn handshake(
     endpoint: Endpoint,
-    remote_id: EndpointId,
+    remote_addr: EndpointAddr,
     signer: Arc<dyn InstitutionalSigner>,
     verifier: Arc<dyn InstitutionVerifier>,
     max_skew_secs: Option<u64>,
 ) -> Result<()> {
     let conn = endpoint
-        .connect(remote_id, MUTUAL_ALPN)
+        .connect(remote_addr, MUTUAL_ALPN)
         .await
         .map_err(transport)?;
     let (mut send, mut recv) = conn.open_bi().await.map_err(transport)?;

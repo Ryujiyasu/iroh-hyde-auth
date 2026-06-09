@@ -120,11 +120,12 @@ Full run: [`examples/mutual-echo.rs`](examples/mutual-echo.rs).
 - `software` — software-backed key, **for development/CI/offline tests only**.
 
 ```text
-# offline crypto-core tests (no TPM, no network)
+# offline tests: crypto core + real loopback end-to-end (no TPM, no network)
 cargo test --no-default-features --features software
 
-# live end-to-end demo (needs network for the n0 preset)
-cargo run --example echo-auth --features software
+# live demos (need network for the n0 preset)
+cargo run --example echo-auth   --features software   # one-directional
+cargo run --example mutual-echo --features software   # mutual
 ```
 
 ## Security properties
@@ -139,9 +140,9 @@ cargo run --example echo-auth --features software
 ## Limitations
 
 - Two modes ship: one-directional (`incoming`/`outgoing` — initiator proves to
-  acceptor) and mutual (`mutual` — both prove and verify). Mutual auth has not
-  yet been exercised against live endpoints over the network, only in the
-  compile-checked example + offline crypto tests.
+  acceptor) and mutual (`mutual` — both prove and verify). Both are exercised by
+  `tests/e2e.rs` over real loopback endpoints (relay + discovery disabled); not
+  yet validated across a real n0 relay/NAT-traversal network.
 - Roster is an in-memory allow-list; revocation = remove the key. External
   revocation/time-validity sources are not wired in yet.
 - The institutional signature runs synchronously on the async task; at high
