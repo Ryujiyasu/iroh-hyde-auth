@@ -117,14 +117,22 @@ Full run: [`examples/mutual-echo.rs`](examples/mutual-echo.rs).
 
 ## Backends & features
 
-- `tpm` *(default)* — institutional key sealed to a TPM 2.0 via hyde. Use
-  `FallbackPolicy::Deny` so a missing TPM is a hard error, never a silent
+- `tpm` *(default)* — institutional key sealed to a TPM 2.0 via hyde (ML-DSA).
+  Use `FallbackPolicy::Deny` so a missing TPM is a hard error, never a silent
   downgrade.
 - `software` — software-backed key, **for development/CI/offline tests only**.
+- `ssh-agent` — a **second backend** (ed25519 via a running `ssh-agent`,
+  `SshAgentSigner` + `SshVerifier`). It exists to prove the
+  `InstitutionalSigner` / `InstitutionVerifier` traits are backend-agnostic: the
+  hooks, roster, wire protocol, and transcript binding are all unchanged — only
+  the signature scheme differs. Unix only.
 
 ```text
 # offline tests: crypto core + real loopback end-to-end (no TPM, no network)
 cargo test --no-default-features --features software
+
+# ssh-agent backend, against a throwaway agent (Unix)
+cargo test --no-default-features --features ssh-agent --test ssh_agent
 
 # live demos (need network for the n0 preset)
 cargo run --example echo-auth   --features software   # one-directional

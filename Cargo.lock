@@ -1274,6 +1274,7 @@ dependencies = [
 [[package]]
 name = "hyde-core"
 version = "0.1.0"
+source = "git+https://gitlab.com/Ryujiyasu/hyde?rev=e8f984d63c3da9e845475789ff6c3c03df8b4150#e8f984d63c3da9e845475789ff6c3c03df8b4150"
 dependencies = [
  "aes-gcm",
  "argon2",
@@ -1293,6 +1294,7 @@ dependencies = [
 [[package]]
 name = "hyde-macros"
 version = "0.1.0"
+source = "git+https://gitlab.com/Ryujiyasu/hyde?rev=e8f984d63c3da9e845475789ff6c3c03df8b4150#e8f984d63c3da9e845475789ff6c3c03df8b4150"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1302,6 +1304,7 @@ dependencies = [
 [[package]]
 name = "hyde-software"
 version = "0.1.0"
+source = "git+https://gitlab.com/Ryujiyasu/hyde?rev=e8f984d63c3da9e845475789ff6c3c03df8b4150#e8f984d63c3da9e845475789ff6c3c03df8b4150"
 dependencies = [
  "aes-gcm",
  "getrandom 0.2.17",
@@ -1314,6 +1317,7 @@ dependencies = [
 [[package]]
 name = "hyde-tee"
 version = "0.1.0"
+source = "git+https://gitlab.com/Ryujiyasu/hyde?rev=e8f984d63c3da9e845475789ff6c3c03df8b4150#e8f984d63c3da9e845475789ff6c3c03df8b4150"
 dependencies = [
  "hyde-core",
  "hyde-macros",
@@ -1325,6 +1329,7 @@ dependencies = [
 [[package]]
 name = "hyde-tpm"
 version = "0.1.0"
+source = "git+https://gitlab.com/Ryujiyasu/hyde?rev=e8f984d63c3da9e845475789ff6c3c03df8b4150#e8f984d63c3da9e845475789ff6c3c03df8b4150"
 dependencies = [
  "aes-gcm",
  "hyde-core",
@@ -1704,6 +1709,7 @@ dependencies = [
 name = "iroh-hyde-auth"
 version = "0.1.0"
 dependencies = [
+ "ed25519-dalek",
  "hyde-tee",
  "iroh",
  "ml-dsa",

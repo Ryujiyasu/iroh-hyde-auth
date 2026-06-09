@@ -19,6 +19,10 @@ rand = "0.8"
 thiserror = "2"
 tracing = "0.1"
 
+# Only for the `ssh-agent` backend. Pinned to iroh's ed25519-dalek so the tree
+# unifies on a single version.
+ed25519-dalek = { version = "=3.0.0-pre.7", optional = true }
+
 # Transitive pin for the shared RustCrypto stack.
 #
 # hyde-core is written against ml-dsa's `KeyGen`/`from_seed` API and its own lock
@@ -32,11 +36,14 @@ tracing = "0.1"
 # stack). 0.1.0-rc.11+ dropped the `KeyGen` export and would break hyde-core.
 ml-dsa = "=0.1.0-rc.10"
 
-# hyde TEE facade (package `hyde-tee`). Path dependency for local development;
-# switch to a git/crates.io dependency before publishing.
+# hyde TEE facade (package `hyde-tee`), pinned to a published commit so this
+# crate is clone-buildable. For local hyde development, override with e.g.:
+#   [patch."https://gitlab.com/Ryujiyasu/hyde"]
+#   hyde-tee = { path = "../hyde/crates/hyde" }
 [dependencies.hyde]
 package = "hyde-tee"
-path = "../hyde/crates/hyde"
+git = "https://gitlab.com/Ryujiyasu/hyde"
+rev = "e8f984d63c3da9e845475789ff6c3c03df8b4150"
 default-features = false
 
 [dev-dependencies]
@@ -49,6 +56,9 @@ default = ["tpm"]
 tpm = ["hyde/tpm"]
 # `software` is for development, CI, and offline tests only — no hardware binding.
 software = ["hyde/software"]
+# `ssh-agent` adds a second institutional backend (ed25519 via a running agent),
+# proving the signer/verifier traits are backend-agnostic. Unix only.
+ssh-agent = ["dep:ed25519-dalek"]
 
 [[example]]
 name = "echo-auth"

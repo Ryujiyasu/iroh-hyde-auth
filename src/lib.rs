@@ -48,6 +48,8 @@ mod incoming;
 mod mutual;
 mod outgoing;
 mod signer;
+#[cfg(feature = "ssh-agent")]
+mod ssh_agent;
 mod util;
 mod verifier;
 mod wire;
@@ -60,6 +62,8 @@ pub use incoming::{incoming, AuthProtocol, IncomingAuthHook};
 pub use mutual::{mutual, MutualAuthHook, MutualAuthProtocol, MutualAuthTask};
 pub use outgoing::{outgoing, OutgoingAuthHook, OutgoingAuthTask};
 pub use signer::{HydeSigner, InstitutionalSigner};
+#[cfg(feature = "ssh-agent")]
+pub use ssh_agent::{SshAgentSigner, SshVerifier};
 pub use util::TaskGuard;
 pub use verifier::{HydeVerifier, InstitutionId, InstitutionVerifier, Roster, VerifyError};
 pub use wire::{ALPN, MUTUAL_ALPN};
