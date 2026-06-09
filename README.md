@@ -162,9 +162,9 @@ cargo run --example mutual-echo --features software   # mutual
   yet validated across a real n0 relay/NAT-traversal network.
 - Roster is an in-memory allow-list; revocation = remove the key. External
   revocation/time-validity sources are not wired in yet.
-- The TPM backend is validated end-to-end against a software TPM 2.0 (swtpm,
-  full tss-esapi path) in `tests/tpm.rs`; a hardware TPM uses the identical
-  code path (`TCTI=device:/dev/tpmrm0`).
+- The TPM backend is validated end-to-end in `tests/tpm.rs` against both a
+  software TPM 2.0 (swtpm) and a **hardware TPM** (`TCTI=device:/dev/tpmrm0`) —
+  the full tss-esapi path: primary key, sealed ML-DSA seed, unseal + sign.
 - Pinned to `iroh = =1.0.0-rc.1`.
 
 ## Relationship to upstream iroh
