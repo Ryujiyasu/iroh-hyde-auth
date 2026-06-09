@@ -185,7 +185,7 @@ async fn handshake(
     let id_bytes: &[u8; ENDPOINT_ID_LEN] = my_id.as_bytes();
     let now = unix_secs();
     let message = transcript(&challenge.nonce, id_bytes, now);
-    let signature = signer.sign(&message)?;
+    let signature = crate::signer::sign_blocking(&signer, &message).await?;
     write_msg(
         &mut send,
         &ClientAuth {

@@ -191,7 +191,7 @@ impl MutualAuthProtocol {
         let time_b = unix_secs();
         let b_transcript =
             mutual_transcript(ROLE_ACCEPTOR, &hello.nonce, local_id.as_bytes(), time_b);
-        let sig_b = self.signer.sign(&b_transcript)?;
+        let sig_b = crate::signer::sign_blocking(&self.signer, &b_transcript).await?;
         write_msg(
             &mut send,
             &MutualChallenge {
@@ -388,7 +388,7 @@ async fn handshake(
     let my_id = endpoint.id();
     let time_a = unix_secs();
     let a_transcript = mutual_transcript(ROLE_INITIATOR, &challenge.nonce, my_id.as_bytes(), time_a);
-    let sig_a = signer.sign(&a_transcript)?;
+    let sig_a = crate::signer::sign_blocking(&signer, &a_transcript).await?;
     write_msg(
         &mut send,
         &MutualResponse {

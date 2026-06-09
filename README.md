@@ -42,16 +42,19 @@ control.
 
 ```mermaid
 sequenceDiagram
-    participant I as Initiator<br/>(institution X)
-    participant A as Acceptor<br/>(roster of trusted keys)
-    Note over I,A: separate auth ALPN — application protocol is untouched
-    I->>A: ClientHello { version }
-    A->>I: ServerChallenge { nonce, time }
-    Note over I: transcript = DOMAIN ‖ ver ‖ nonce ‖ my_endpoint_id ‖ time<br/>sig = hyde.sign(transcript)  (TPM)
-    I->>A: ClientAuth { verifying_key, sig, time }
-    Note over A: rebuild transcript with QUIC-authenticated remote_id<br/>verify sig + roster membership
-    A-->>I: close 1 (accepted) / 403 (denied)
-    Note over I,A: later — application (echo / iroh-blobs / iroh-gossip) connects;<br/>acceptor's after_handshake admits only pre-authenticated peers
+    participant I as Initiator
+    participant A as Acceptor
+    Note over I,A: separate auth ALPN, the application protocol is untouched
+    I->>A: ClientHello
+    A->>I: ServerChallenge with nonce and time
+    Note over I: transcript = DOMAIN + ver + nonce + my_endpoint_id + time
+    Note over I: sig = hyde sign of transcript, on the TPM
+    I->>A: ClientAuth with verifying_key, sig, time
+    Note over A: rebuild transcript with the QUIC-authenticated remote_id
+    Note over A: verify sig and roster membership
+    A-->>I: close 1 accepted or 403 denied
+    Note over I,A: later the application connects
+    Note over I,A: after_handshake admits only pre-authenticated peers
 ```
 
 The plumbing maps onto iroh's [`EndpointHooks`]:

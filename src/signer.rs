@@ -1,10 +1,25 @@
 //! The initiator's side of institutional identity: producing signatures.
 
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 
 use hyde::{FallbackPolicy, HydeContext, SigningAlgorithm, WrappedSigningKey};
 
 use crate::error::{Error, Result};
+
+/// Run an [`InstitutionalSigner::sign`] on the blocking thread pool.
+///
+/// A hardware signature (TPM ~10–100 ms) would otherwise stall the async
+/// worker that drives the connection. Callers on the connection path use this.
+pub(crate) async fn sign_blocking(
+    signer: &Arc<dyn InstitutionalSigner>,
+    message: &[u8],
+) -> Result<Vec<u8>> {
+    let signer = signer.clone();
+    let message = message.to_vec();
+    tokio::task::spawn_blocking(move || signer.sign(&message))
+        .await
+        .map_err(|e| Error::Signer(format!("signing task failed: {e}")))?
+}
 
 /// Produces institutional signatures over auth transcripts.
 ///
