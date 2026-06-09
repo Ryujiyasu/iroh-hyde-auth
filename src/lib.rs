@@ -45,6 +45,7 @@
 
 mod error;
 mod incoming;
+mod mutual;
 mod outgoing;
 mod signer;
 mod util;
@@ -56,11 +57,12 @@ mod tests;
 
 pub use error::{Error, Result};
 pub use incoming::{incoming, AuthProtocol, IncomingAuthHook};
+pub use mutual::{mutual, MutualAuthHook, MutualAuthProtocol, MutualAuthTask};
 pub use outgoing::{outgoing, OutgoingAuthHook, OutgoingAuthTask};
 pub use signer::{HydeSigner, InstitutionalSigner};
 pub use util::TaskGuard;
 pub use verifier::{HydeVerifier, InstitutionId, InstitutionVerifier, Roster, VerifyError};
-pub use wire::ALPN;
+pub use wire::{ALPN, MUTUAL_ALPN};
 
 // Re-export the hyde knobs callers need so they don't have to depend on
 // `hyde-tee` directly just to pick a fallback policy or algorithm.

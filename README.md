@@ -93,6 +93,25 @@ let _guard = task.spawn(endpoint.clone());
 
 Full, compile-checked run: [`examples/echo-auth.rs`](examples/echo-auth.rs).
 
+### Mutual auth
+
+For peer-to-peer trust (hospital ↔ hospital), use `mutual()`: a single auth-ALPN
+exchange has *both* sides prove and verify each other (with role separation to
+block reflection), and one combined hook gates connections in both directions.
+Each endpoint carries its own signer **and** a roster.
+
+```rust,ignore
+let (hook, protocol, task) = mutual(my_signer, my_verifier);
+let endpoint = Endpoint::builder(presets::N0).hooks(hook).bind().await?;
+let _guard = task.spawn(endpoint.clone());   // also publishes our id to the acceptor side
+let router = Router::builder(endpoint)
+    .accept(iroh_hyde_auth::MUTUAL_ALPN, protocol)
+    .accept(b"my-app/0", my_protocol)
+    .spawn();
+```
+
+Full run: [`examples/mutual-echo.rs`](examples/mutual-echo.rs).
+
 ## Backends & features
 
 - `tpm` *(default)* — institutional key sealed to a TPM 2.0 via hyde. Use
@@ -119,12 +138,14 @@ cargo run --example echo-auth --features software
 
 ## Limitations
 
-- **One-directional** for now: the initiator proves its institution to the
-  acceptor. *Mutual* institutional auth (both peers prove, as hospital ↔
-  hospital ultimately needs) requires a combined hook implementing both
-  `before_connect` and `after_handshake` on one endpoint — next on the roadmap.
+- Two modes ship: one-directional (`incoming`/`outgoing` — initiator proves to
+  acceptor) and mutual (`mutual` — both prove and verify). Mutual auth has not
+  yet been exercised against live endpoints over the network, only in the
+  compile-checked example + offline crypto tests.
 - Roster is an in-memory allow-list; revocation = remove the key. External
   revocation/time-validity sources are not wired in yet.
+- The institutional signature runs synchronously on the async task; at high
+  connection rates a TPM sign (~10–100 ms) should move to `spawn_blocking`.
 - Pinned to `iroh = =1.0.0-rc.1`.
 
 ## Relationship to upstream iroh

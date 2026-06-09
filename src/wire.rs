@@ -100,6 +100,69 @@ pub(crate) fn transcript(
     t
 }
 
+// ---------------------------------------------------------------------------
+// Mutual handshake (both peers prove and verify in one exchange).
+// ---------------------------------------------------------------------------
+
+/// ALPN for the *mutual* auth handshake. Distinct from [`ALPN`] so a
+/// one-directional initiator and a mutual acceptor never mis-parse each other.
+pub const MUTUAL_ALPN: &[u8] = b"iroh-hyde-auth/mutual/0";
+
+/// Domain-separation tag for mutual transcripts.
+pub(crate) const DOMAIN_MUTUAL: &[u8] = b"iroh-hyde-auth/v0/mutual-challenge";
+
+/// Role of the signer in the mutual handshake. Mixed into the transcript so a
+/// signature produced in one role cannot be reflected as the other.
+pub(crate) const ROLE_INITIATOR: u8 = 1; // dialled the auth connection
+pub(crate) const ROLE_ACCEPTOR: u8 = 2; // accepted the auth connection
+
+/// Message 1, initiator → acceptor: greet and send the initiator's nonce.
+#[derive(Debug, Serialize, Deserialize)]
+pub(crate) struct MutualHello {
+    pub version: u8,
+    pub nonce: [u8; NONCE_LEN],
+}
+
+/// Message 2, acceptor → initiator: the acceptor's nonce *and* its own
+/// institutional assertion (bound to the initiator's nonce).
+#[derive(Debug, Serialize, Deserialize)]
+pub(crate) struct MutualChallenge {
+    pub version: u8,
+    pub nonce: [u8; NONCE_LEN],
+    pub verifying_key: Vec<u8>,
+    pub signature: Vec<u8>,
+    pub acceptor_unix_secs: u64,
+}
+
+/// Message 3, initiator → acceptor: the initiator's institutional assertion
+/// (bound to the acceptor's nonce).
+#[derive(Debug, Serialize, Deserialize)]
+pub(crate) struct MutualResponse {
+    pub verifying_key: Vec<u8>,
+    pub signature: Vec<u8>,
+    pub initiator_unix_secs: u64,
+}
+
+/// Build a mutual transcript. The signer asserts: *"institution `vk` operates
+/// endpoint `signer_id`, fresh with respect to `peer_nonce`, at `time`, acting
+/// as `role`."* The verifier rebuilds it with the peer's role, the nonce it
+/// itself generated, and the QUIC-authenticated `remote_id` as `signer_id`.
+pub(crate) fn mutual_transcript(
+    role: u8,
+    peer_nonce: &[u8; NONCE_LEN],
+    signer_id: &[u8; ENDPOINT_ID_LEN],
+    time: u64,
+) -> Vec<u8> {
+    let mut t = Vec::with_capacity(DOMAIN_MUTUAL.len() + 2 + NONCE_LEN + ENDPOINT_ID_LEN + 8);
+    t.extend_from_slice(DOMAIN_MUTUAL);
+    t.push(PROTOCOL_VERSION);
+    t.push(role);
+    t.extend_from_slice(peer_nonce);
+    t.extend_from_slice(signer_id);
+    t.extend_from_slice(&time.to_be_bytes());
+    t
+}
+
 /// Write a length-prefixed, postcard-encoded message.
 pub(crate) async fn write_msg<T: Serialize>(send: &mut SendStream, msg: &T) -> Result<()> {
     let bytes = postcard::to_allocvec(msg)?;

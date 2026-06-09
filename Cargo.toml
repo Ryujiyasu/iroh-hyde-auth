@@ -53,3 +53,7 @@ software = ["hyde/software"]
 [[example]]
 name = "echo-auth"
 required-features = ["software"]
+
+[[example]]
+name = "mutual-echo"
+required-features = ["software"]

@@ -10,7 +10,9 @@
 #![cfg(feature = "software")]
 
 use crate::{
-    wire::{transcript, ENDPOINT_ID_LEN, NONCE_LEN},
+    wire::{
+        mutual_transcript, transcript, ENDPOINT_ID_LEN, NONCE_LEN, ROLE_ACCEPTOR, ROLE_INITIATOR,
+    },
     FallbackPolicy, HydeSigner, HydeVerifier, InstitutionVerifier, InstitutionalSigner, Roster,
     VerifyError,
 };
@@ -135,6 +137,32 @@ fn nonce_binding_enforced() {
     let other = transcript(&[0xAB; NONCE_LEN], &id, TS);
     assert!(matches!(
         verifier.verify(&vk, &other, &sig),
+        Err(VerifyError::BadSignature)
+    ));
+}
+
+#[test]
+fn mutual_role_separation_enforced() {
+    // A signature produced as the INITIATOR must not verify when reinterpreted
+    // as the ACCEPTOR (and vice versa) — blocks reflection of one peer's
+    // assertion back as the other's.
+    let s = signer();
+    let vk = s.verifying_key();
+    let verifier = HydeVerifier::new(roster_with(&vk, "hospital-a"));
+
+    let nonce = [0x44; NONCE_LEN];
+    let id = [0x55; ENDPOINT_ID_LEN];
+
+    let as_initiator = mutual_transcript(ROLE_INITIATOR, &nonce, &id, TS);
+    let sig = s.sign(&as_initiator).unwrap();
+
+    // Same role verifies.
+    assert!(verifier.verify(&vk, &as_initiator, &sig).is_ok());
+
+    // Reflected as the acceptor role: rejected.
+    let as_acceptor = mutual_transcript(ROLE_ACCEPTOR, &nonce, &id, TS);
+    assert!(matches!(
+        verifier.verify(&vk, &as_acceptor, &sig),
         Err(VerifyError::BadSignature)
     ));
 }
